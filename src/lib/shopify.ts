@@ -2,14 +2,23 @@ function getShopifyConfig() {
   const rawDomain = process.env.SHOPIFY_STORE_DOMAIN?.trim() ?? "";
   const token = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN?.trim() ?? "";
 
-  const domain = rawDomain
+  // Strip protocol, paths, and whitespace — keep only the hostname
+  let domain = rawDomain
     .replace(/^https?:\/\//, "")
-    .replace(/\/+$/, "");
+    .split("/")[0]
+    .trim()
+    .toLowerCase();
 
   if (!domain || !token) {
     throw new Error(
-      "Missing Shopify env vars. Set SHOPIFY_STORE_DOMAIN (e.g. your-store.myshopify.com) " +
-        "and SHOPIFY_STOREFRONT_ACCESS_TOKEN in Vercel.",
+      "Missing Shopify env vars. Set SHOPIFY_STORE_DOMAIN and SHOPIFY_STOREFRONT_ACCESS_TOKEN in Vercel.",
+    );
+  }
+
+  if (!/^[a-z0-9-]+\.myshopify\.com$/.test(domain)) {
+    throw new Error(
+      `Invalid SHOPIFY_STORE_DOMAIN: "${rawDomain}". ` +
+        "Use only your myshopify.com hostname, e.g. 0vfr3h-bn.myshopify.com",
     );
   }
 
@@ -94,19 +103,24 @@ export async function getProducts(): Promise<Product[]> {
 }
 
 export async function getProduct(handle: string): Promise<Product | null> {
-  const data = await shopifyFetch<{
-    product: Record<string, unknown> | null;
-  }>(
-    `query ($handle: String!) {
-      product(handle: $handle) {
-        ${PRODUCT_FIELDS}
-      }
-    }`,
-    { handle },
-  );
+  try {
+    const data = await shopifyFetch<{
+      product: Record<string, unknown> | null;
+    }>(
+      `query ($handle: String!) {
+        product(handle: $handle) {
+          ${PRODUCT_FIELDS}
+        }
+      }`,
+      { handle },
+    );
 
-  if (!data.product) return null;
-  return mapProduct(data.product);
+    if (!data.product) return null;
+    return mapProduct(data.product);
+  } catch (error) {
+    console.error(`Failed to load product "${handle}":`, error);
+    return null;
+  }
 }
 
 export async function createCheckout(variantId: string, quantity = 1): Promise<string> {

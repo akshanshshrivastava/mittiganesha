@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { BuyButton } from "@/components/BuyButton";
 import { formatPrice, getProduct } from "@/lib/shopify";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProductPage({
   params,
 }: {
