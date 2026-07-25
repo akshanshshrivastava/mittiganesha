@@ -1,5 +1,20 @@
-const domain = process.env.SHOPIFY_STORE_DOMAIN!;
-const token = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN!;
+function getShopifyConfig() {
+  const rawDomain = process.env.SHOPIFY_STORE_DOMAIN?.trim() ?? "";
+  const token = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN?.trim() ?? "";
+
+  const domain = rawDomain
+    .replace(/^https?:\/\//, "")
+    .replace(/\/+$/, "");
+
+  if (!domain || !token) {
+    throw new Error(
+      "Missing Shopify env vars. Set SHOPIFY_STORE_DOMAIN (e.g. your-store.myshopify.com) " +
+        "and SHOPIFY_STOREFRONT_ACCESS_TOKEN in Vercel.",
+    );
+  }
+
+  return { domain, token };
+}
 
 export type Product = {
   id: string;
@@ -15,6 +30,8 @@ export type Product = {
 };
 
 async function shopifyFetch<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  const { domain, token } = getShopifyConfig();
+
   const res = await fetch(`https://${domain}/api/2025-01/graphql.json`, {
     method: "POST",
     headers: {
@@ -58,17 +75,22 @@ const PRODUCT_FIELDS = `
 `;
 
 export async function getProducts(): Promise<Product[]> {
-  const data = await shopifyFetch<{
-    products: { edges: { node: Record<string, unknown> }[] };
-  }>(`{
-    products(first: 20, sortKey: TITLE) {
-      edges {
-        node { ${PRODUCT_FIELDS} }
+  try {
+    const data = await shopifyFetch<{
+      products: { edges: { node: Record<string, unknown> }[] };
+    }>(`{
+      products(first: 20, sortKey: TITLE) {
+        edges {
+          node { ${PRODUCT_FIELDS} }
+        }
       }
-    }
-  }`);
+    }`);
 
-  return data.products.edges.map(({ node }) => mapProduct(node));
+    return data.products.edges.map(({ node }) => mapProduct(node));
+  } catch (error) {
+    console.error("Failed to load products:", error);
+    return [];
+  }
 }
 
 export async function getProduct(handle: string): Promise<Product | null> {
