@@ -2,25 +2,41 @@ import Link from "next/link";
 
 export function Header() {
   return (
-    <header className="border-b border-stone-200 bg-[#faf7f2]/90 backdrop-blur-sm sticky top-0 z-50">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="group flex items-center gap-2">
-          <span className="text-2xl" aria-hidden>
-            ॐ
-          </span>
+    <header className="sticky top-0 z-50 border-b border-clay-200/80 bg-clay-50/85 backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
+        <Link href="/" className="group flex items-center gap-3">
+          <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-maroon to-terracotta shadow-md shadow-maroon/20 transition group-hover:shadow-lg group-hover:shadow-maroon/30">
+            <span className="font-serif text-xl text-amber-100" aria-hidden>
+              ॐ
+            </span>
+          </div>
           <div>
-            <p className="font-serif text-xl font-semibold tracking-tight text-stone-900 group-hover:text-amber-900 transition-colors">
+            <p className="font-serif text-xl font-semibold tracking-wide text-clay-900 group-hover:text-maroon transition-colors">
               Mitti Ganesha
             </p>
-            <p className="text-xs text-stone-500">Eco-friendly clay idols</p>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-clay-500">
+              Shree Ganeshay Namah
+            </p>
           </div>
         </Link>
-        <nav className="hidden sm:flex items-center gap-6 text-sm text-stone-600">
-          <Link href="/#products" className="hover:text-amber-900 transition-colors">
+        <nav className="flex items-center gap-1 sm:gap-2">
+          <Link
+            href="/#products"
+            className="rounded-full px-4 py-2 text-sm font-medium text-clay-700 transition hover:bg-clay-200/60 hover:text-maroon"
+          >
             Shop
           </Link>
-          <Link href="/#about" className="hover:text-amber-900 transition-colors">
-            About
+          <Link
+            href="/#about"
+            className="rounded-full px-4 py-2 text-sm font-medium text-clay-700 transition hover:bg-clay-200/60 hover:text-maroon"
+          >
+            Our Story
+          </Link>
+          <Link
+            href="/#products"
+            className="hidden sm:inline-flex btn-primary rounded-full px-5 py-2 text-sm font-medium text-white"
+          >
+            Browse idols
           </Link>
         </nav>
       </div>

@@ -27,9 +27,9 @@ export function BuyButton({
     <button
       onClick={handleBuy}
       disabled={!available || loading}
-      className="w-full rounded-xl bg-amber-900 px-6 py-3.5 text-base font-medium text-white transition hover:bg-amber-950 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+      className="btn-primary w-full rounded-2xl px-8 py-4 text-base font-semibold tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
     >
-      {loading ? "Redirecting…" : available ? "Buy now" : "Out of stock"}
+      {loading ? "Opening checkout…" : available ? "Buy now — शुभ लाभ" : "Out of stock"}
     </button>
   );
 }

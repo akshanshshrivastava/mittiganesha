@@ -6,29 +6,43 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <Link
       href={`/products/${product.handle}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+      className="card-artisan group flex flex-col overflow-hidden rounded-2xl transition duration-500 hover:-translate-y-2"
     >
-      <div className="relative aspect-square overflow-hidden bg-stone-100">
+      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-clay-100 to-clay-200">
         {product.imageUrl ? (
-          <Image
-            src={product.imageUrl}
-            alt={product.imageAlt}
-            fill
-            className="object-cover transition duration-500 group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, 33vw"
-          />
+          <>
+            <Image
+              src={product.imageUrl}
+              alt={product.imageAlt}
+              fill
+              className="object-cover transition duration-700 group-hover:scale-110"
+              sizes="(max-width: 768px) 100vw, 33vw"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-clay-900/50 via-transparent to-transparent opacity-0 transition duration-500 group-hover:opacity-100" />
+          </>
         ) : (
-          <div className="flex h-full items-center justify-center text-stone-400">No image</div>
+          <div className="flex h-full items-center justify-center text-clay-400">No image</div>
         )}
+        <div className="absolute left-3 top-3 rounded-full bg-white/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-maroon shadow-sm backdrop-blur-sm">
+          6 inch
+        </div>
       </div>
-      <div className="flex flex-1 flex-col p-4">
-        <h3 className="font-serif text-lg font-medium text-stone-900 group-hover:text-amber-900 transition-colors">
+      <div className="relative flex flex-1 flex-col p-5">
+        <div className="absolute left-5 right-5 top-0 h-px bg-gradient-to-r from-transparent via-amber-600/30 to-transparent" />
+        <h3 className="font-serif text-xl font-medium text-clay-900 transition group-hover:text-maroon">
           {product.title}
         </h3>
-        <p className="mt-1 text-sm text-stone-500 line-clamp-2">{product.description}</p>
-        <p className="mt-auto pt-3 text-lg font-semibold text-amber-900">
-          {formatPrice(product.price, product.currencyCode)}
+        <p className="mt-2 flex-1 text-sm leading-relaxed text-clay-500 line-clamp-2">
+          {product.description}
         </p>
+        <div className="mt-4 flex items-center justify-between border-t border-clay-200/80 pt-4">
+          <p className="text-xl font-semibold text-gradient-gold">
+            {formatPrice(product.price, product.currencyCode)}
+          </p>
+          <span className="text-xs font-medium uppercase tracking-wider text-terracotta opacity-0 transition group-hover:opacity-100">
+            View →
+          </span>
+        </div>
       </div>
     </Link>
   );
