@@ -1,0 +1,143 @@
+const domain = process.env.SHOPIFY_STORE_DOMAIN!;
+const token = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN!;
+
+export type Product = {
+  id: string;
+  title: string;
+  handle: string;
+  description: string;
+  price: string;
+  currencyCode: string;
+  imageUrl: string;
+  imageAlt: string;
+  variantId: string;
+  available: boolean;
+};
+
+async function shopifyFetch<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  const res = await fetch(`https://${domain}/api/2025-01/graphql.json`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Storefront-Access-Token": token,
+    },
+    body: JSON.stringify({ query, variables }),
+    next: { revalidate: 60 },
+  });
+
+  const json = await res.json();
+  if (json.errors) {
+    throw new Error(json.errors[0]?.message ?? "Shopify API error");
+  }
+  return json.data;
+}
+
+const PRODUCT_FIELDS = `
+  id
+  title
+  handle
+  description
+  featuredImage {
+    url
+    altText
+  }
+  priceRange {
+    minVariantPrice {
+      amount
+      currencyCode
+    }
+  }
+  variants(first: 1) {
+    edges {
+      node {
+        id
+        availableForSale
+      }
+    }
+  }
+`;
+
+export async function getProducts(): Promise<Product[]> {
+  const data = await shopifyFetch<{
+    products: { edges: { node: Record<string, unknown> }[] };
+  }>(`{
+    products(first: 20, sortKey: TITLE) {
+      edges {
+        node { ${PRODUCT_FIELDS} }
+      }
+    }
+  }`);
+
+  return data.products.edges.map(({ node }) => mapProduct(node));
+}
+
+export async function getProduct(handle: string): Promise<Product | null> {
+  const data = await shopifyFetch<{
+    product: Record<string, unknown> | null;
+  }>(
+    `query ($handle: String!) {
+      product(handle: $handle) {
+        ${PRODUCT_FIELDS}
+      }
+    }`,
+    { handle },
+  );
+
+  if (!data.product) return null;
+  return mapProduct(data.product);
+}
+
+export async function createCheckout(variantId: string, quantity = 1): Promise<string> {
+  const data = await shopifyFetch<{
+    cartCreate: {
+      cart: { checkoutUrl: string } | null;
+      userErrors: { message: string }[];
+    };
+  }>(
+    `mutation ($lines: [CartLineInput!]!) {
+      cartCreate(input: { lines: $lines }) {
+        cart { checkoutUrl }
+        userErrors { message }
+      }
+    }`,
+    { lines: [{ merchandiseId: variantId, quantity }] },
+  );
+
+  const errors = data.cartCreate.userErrors;
+  if (errors.length > 0) {
+    throw new Error(errors[0].message);
+  }
+
+  const url = data.cartCreate.cart?.checkoutUrl;
+  if (!url) throw new Error("Could not create checkout");
+  return url;
+}
+
+function mapProduct(node: Record<string, unknown>): Product {
+  const variant = (node.variants as { edges: { node: Record<string, unknown> }[] })
+    .edges[0].node;
+  const price = (node.priceRange as { minVariantPrice: { amount: string; currencyCode: string } })
+    .minVariantPrice;
+  const image = node.featuredImage as { url: string; altText: string | null } | null;
+
+  return {
+    id: node.id as string,
+    title: node.title as string,
+    handle: node.handle as string,
+    description: node.description as string,
+    price: price.amount,
+    currencyCode: price.currencyCode,
+    imageUrl: image?.url ?? "",
+    imageAlt: image?.altText ?? (node.title as string),
+    variantId: variant.id as string,
+    available: variant.availableForSale as boolean,
+  };
+}
+
+export function formatPrice(amount: string, currencyCode: string): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: currencyCode,
+    maximumFractionDigits: 0,
+  }).format(parseFloat(amount));
+}
