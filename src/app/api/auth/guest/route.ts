@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession, isSessionConfigured } from "@/lib/session";
+import { getWritableSession, isSessionConfigured } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
   if (!isSessionConfigured()) {
@@ -10,7 +10,10 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const session = await getSession();
+  const session = await getWritableSession();
+  if (!session) {
+    return NextResponse.json({ error: "Session not configured." }, { status: 503 });
+  }
 
   session.type = "guest";
   session.isLoggedIn = true;

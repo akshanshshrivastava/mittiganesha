@@ -39,11 +39,22 @@ function getSessionOptions(): SessionOptions | null {
   return cachedOptions;
 }
 
-export async function getSession() {
+export async function getSession(): Promise<SessionData> {
   const options = getSessionOptions();
   if (!options) {
     return { ...defaultSession };
   }
+
+  const session = await getIronSession<SessionData>(await cookies(), options);
+  if (session.isLoggedIn === undefined) {
+    session.isLoggedIn = false;
+  }
+  return session;
+}
+
+export async function getWritableSession() {
+  const options = getSessionOptions();
+  if (!options) return null;
 
   const session = await getIronSession<SessionData>(await cookies(), options);
   if (session.isLoggedIn === undefined) {

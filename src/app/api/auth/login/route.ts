@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loginCustomer } from "@/lib/shopify-customer";
-import { getSession, isSessionConfigured } from "@/lib/session";
+import { getWritableSession, isSessionConfigured } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
   if (!isSessionConfigured()) {
@@ -18,7 +18,10 @@ export async function POST(request: NextRequest) {
     }
 
     const { accessToken, customer } = await loginCustomer(email, password);
-    const session = await getSession();
+    const session = await getWritableSession();
+    if (!session) {
+      return NextResponse.json({ error: "Session not configured." }, { status: 503 });
+    }
 
     session.type = "customer";
     session.isLoggedIn = true;
