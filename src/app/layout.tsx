@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, DM_Sans } from "next/font/google";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   title: "Mitti Ganesha — Eco-Friendly Clay Idols",
   description:
     "Handcrafted 6-inch mitti Ganesha idols made from natural clay. Eco-friendly, visarjan-safe, and perfect for Ganesh Chaturthi.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#faf6f0",
 };
 
 export default function RootLayout({

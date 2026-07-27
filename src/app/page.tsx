@@ -31,16 +31,16 @@ export default async function HomePage() {
     <>
       {/* Hero */}
       <section className="relative overflow-hidden grain pattern-rings">
-        <FloatingOm className="absolute left-[8%] top-[20%] text-[120px]" />
-        <FloatingOm className="absolute right-[12%] bottom-[15%] text-[80px] [animation-delay:-3s]" />
+        <FloatingOm className="absolute left-[8%] top-[20%] hidden text-[120px] md:block" />
+        <FloatingOm className="absolute right-[12%] bottom-[15%] hidden text-[80px] [animation-delay:-3s] md:block" />
 
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-24">
           <div className="relative z-10">
-            <p className="animate-fade-up mb-4 inline-flex items-center gap-2 rounded-full border border-amber-700/20 bg-white/60 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-maroon backdrop-blur-sm">
+            <p className="animate-fade-up mb-4 inline-flex max-w-full flex-wrap items-center gap-2 rounded-full border border-amber-700/20 bg-white/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-maroon backdrop-blur-sm sm:px-4 sm:text-xs sm:tracking-[0.25em]">
               <span className="h-1.5 w-1.5 rounded-full bg-saffron" />
               Eco · Handcrafted · Visarjan-safe
             </p>
-            <h1 className="animate-fade-up-delay font-serif text-[2.75rem] font-semibold leading-[1.1] text-clay-900 sm:text-5xl lg:text-[3.5rem]">
+            <h1 className="animate-fade-up-delay font-serif text-3xl font-semibold leading-[1.1] text-clay-900 sm:text-5xl lg:text-[3.5rem]">
               Clay idols that{" "}
               <span className="text-gradient-gold italic">return</span>{" "}
               to the earth
@@ -49,13 +49,13 @@ export default async function HomePage() {
               Mitti Ganesha brings you beautiful 6-inch mitti Ganesha idols — sculpted from
               natural clay, made for devotion, and meant to dissolve safely after visarjan.
             </p>
-            <div className="animate-fade-up-delay-2 mt-8 flex flex-wrap gap-4">
-              <a href="#products" className="btn-primary inline-flex rounded-full px-8 py-3.5 text-base font-semibold text-white">
+            <div className="animate-fade-up-delay-2 mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
+              <a href="#products" className="btn-primary inline-flex justify-center rounded-full px-8 py-3.5 text-base font-semibold text-white">
                 Shop our idols
               </a>
               <a
                 href="#about"
-                className="inline-flex rounded-full border border-clay-300 bg-white/70 px-8 py-3.5 text-base font-medium text-clay-700 backdrop-blur-sm transition hover:border-maroon/30 hover:text-maroon"
+                className="inline-flex justify-center rounded-full border border-clay-300 bg-white/70 px-8 py-3.5 text-base font-medium text-clay-700 backdrop-blur-sm transition hover:border-maroon/30 hover:text-maroon"
               >
                 Our story
               </a>
