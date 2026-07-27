@@ -4,9 +4,16 @@ import { OrnamentDivider } from "@/components/Ornament";
 export default async function OrderSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ payment_id?: string; product?: string; amount?: string }>;
+  searchParams: Promise<{
+    payment_id?: string;
+    product?: string;
+    amount?: string;
+    delivery?: string;
+    estimated_by?: string;
+    address?: string;
+  }>;
 }) {
-  const { payment_id, product, amount } = await searchParams;
+  const { payment_id, product, amount, delivery, estimated_by, address } = await searchParams;
 
   return (
     <div className="relative grain pattern-rings py-20 sm:py-28">
@@ -14,25 +21,44 @@ export default async function OrderSuccessPage({
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-green-100 to-emerald-50 text-4xl">
           ✓
         </div>
-        <h1 className="mt-6 font-serif text-3xl font-semibold text-clay-900">Payment successful</h1>
+        <h1 className="mt-6 font-serif text-3xl font-semibold text-clay-900">Order confirmed!</h1>
         <OrnamentDivider className="mx-auto my-6 max-w-xs" />
         <p className="text-clay-600">
-          Thank you for your order. Your devotion supports eco-friendly craftsmanship.
+          Thank you for your order. We&apos;ll pack your mitti Ganesha with care and ship it soon.
         </p>
 
-        {product && (
-          <div className="mt-6 rounded-2xl bg-clay-100/80 p-5 text-left text-sm">
-            <p>
-              <span className="font-medium text-clay-700">Product:</span> {product}
-            </p>
+        {(delivery || estimated_by) && (
+          <div className="mt-6 rounded-2xl border border-green-200/80 bg-green-50/80 p-5 text-left text-sm">
+            <p className="font-medium text-green-900">🚚 Delivery estimate</p>
+            {delivery && <p className="mt-1 text-green-800">{delivery}</p>}
+            {estimated_by && (
+              <p className="mt-1 text-green-700">
+                Expected by <strong>{estimated_by}</strong>
+              </p>
+            )}
+          </div>
+        )}
+
+        {(product || address) && (
+          <div className="mt-4 rounded-2xl bg-clay-100/80 p-5 text-left text-sm">
+            {product && (
+              <p>
+                <span className="font-medium text-clay-700">Product:</span> {product}
+              </p>
+            )}
             {amount && (
               <p className="mt-2">
-                <span className="font-medium text-clay-700">Amount:</span> ₹{amount}
+                <span className="font-medium text-clay-700">Amount paid:</span> ₹{amount}
+              </p>
+            )}
+            {address && (
+              <p className="mt-2">
+                <span className="font-medium text-clay-700">Delivering to:</span> {address}
               </p>
             )}
             {payment_id && (
-              <p className="mt-2 break-all">
-                <span className="font-medium text-clay-700">Payment ID:</span> {payment_id}
+              <p className="mt-2 break-all text-xs text-clay-500">
+                Payment ID: {payment_id}
               </p>
             )}
           </div>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRazorpayOrder } from "@/lib/razorpay";
+import { validateDeliveryAddress } from "@/lib/delivery";
 import { getProduct } from "@/lib/shopify";
 import { getSession } from "@/lib/session";
 
@@ -10,9 +11,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Please log in or continue as guest." }, { status: 401 });
     }
 
-    const { handle, quantity = 1 } = await request.json();
+    const { handle, quantity = 1, delivery } = await request.json();
     if (!handle) {
       return NextResponse.json({ error: "Product handle is required." }, { status: 400 });
+    }
+
+    if (!delivery) {
+      return NextResponse.json({ error: "Delivery address is required." }, { status: 400 });
+    }
+
+    const addressError = validateDeliveryAddress(delivery);
+    if (addressError) {
+      return NextResponse.json({ error: addressError }, { status: 400 });
     }
 
     const product = await getProduct(handle);
@@ -24,7 +34,13 @@ export async function POST(request: NextRequest) {
     const totalInr = parseFloat(product.price) * qty;
     const receipt = `mg_${handle.slice(0, 20)}_${Date.now()}`;
 
-    const order = await createRazorpayOrder(totalInr, receipt);
+    const order = await createRazorpayOrder(totalInr, receipt, {
+      product: product.title,
+      customer: delivery.name,
+      city: delivery.city,
+      pincode: delivery.pincode,
+      delivery_eta: delivery.estimate || "",
+    });
 
     return NextResponse.json({
       orderId: order.id,
@@ -35,13 +51,11 @@ export async function POST(request: NextRequest) {
         handle: product.handle,
         price: product.price,
         quantity: qty,
-        variantId: product.variantId,
       },
-      customer: {
-        name: session.name,
-        email: session.email,
-        phone: session.phone,
-        type: session.type,
+      delivery: {
+        formatted: delivery.formatted,
+        estimate: delivery.estimate,
+        estimatedBy: delivery.estimatedBy,
       },
     });
   } catch (error) {

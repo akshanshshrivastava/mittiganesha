@@ -18,7 +18,11 @@ function getRazorpayClient() {
   return new Razorpay({ key_id: keyId, key_secret: keySecret });
 }
 
-export async function createRazorpayOrder(amountInr: number, receipt: string) {
+export async function createRazorpayOrder(
+  amountInr: number,
+  receipt: string,
+  notes?: Record<string, string>,
+) {
   const razorpay = getRazorpayClient();
   const amountPaise = Math.round(amountInr * 100);
 
@@ -28,6 +32,7 @@ export async function createRazorpayOrder(amountInr: number, receipt: string) {
     receipt,
     notes: {
       source: "mittiganesha.com",
+      ...notes,
     },
   });
 }
