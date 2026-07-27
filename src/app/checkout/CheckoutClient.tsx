@@ -166,6 +166,9 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
           if (verifyData.shopifyOrderName) {
             params.set("shopify_order", verifyData.shopifyOrderName);
           }
+          if (verifyData.shopifyError) {
+            params.set("shopify_error", verifyData.shopifyError);
+          }
           router.push(`/order/success?${params.toString()}`);
         },
         modal: {

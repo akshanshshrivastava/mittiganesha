@@ -1,20 +1,33 @@
 import type { DeliveryAddress } from "@/lib/delivery";
 
 const API_VERSION = "2025-01";
+const REQUIRED_ORDER_SCOPES = ["write_draft_orders", "write_orders"] as const;
 
 function getShopDomain() {
   const raw = process.env.SHOPIFY_STORE_DOMAIN?.trim() ?? "";
   return raw.replace(/^https?:\/\//, "").split("/")[0].toLowerCase();
 }
 
-async function getAdminAccessToken(): Promise<string> {
+type AdminToken = {
+  token: string;
+  scope: string;
+};
+
+let cachedToken: AdminToken | null = null;
+let cachedAt = 0;
+
+async function getAdminAccessToken(): Promise<AdminToken> {
+  if (cachedToken && Date.now() - cachedAt < 60_000) {
+    return cachedToken;
+  }
+
   const shop = getShopDomain();
   const clientId = process.env.SHOPIFY_CLIENT_ID?.trim();
   const clientSecret = process.env.SHOPIFY_CLIENT_SECRET?.trim();
 
   if (!shop || !clientId || !clientSecret) {
     throw new Error(
-      "Missing SHOPIFY_STORE_DOMAIN, SHOPIFY_CLIENT_ID, or SHOPIFY_CLIENT_SECRET.",
+      "Missing SHOPIFY_STORE_DOMAIN, SHOPIFY_CLIENT_ID, or SHOPIFY_CLIENT_SECRET in environment variables.",
     );
   }
 
@@ -26,22 +39,78 @@ async function getAdminAccessToken(): Promise<string> {
       client_id: clientId,
       client_secret: clientSecret,
     }),
+    cache: "no-store",
   });
 
   const data = await res.json();
   if (!data.access_token) {
     throw new Error(data.error_description || "Could not get Shopify Admin token.");
   }
-  return data.access_token;
+
+  cachedToken = { token: data.access_token, scope: data.scope || "" };
+  cachedAt = Date.now();
+  return cachedToken;
+}
+
+export function getMissingOrderScopes(scope: string): string[] {
+  return REQUIRED_ORDER_SCOPES.filter((required) => !scope.split(",").includes(required));
+}
+
+export async function checkShopifyOrderSyncReady() {
+  const shop = getShopDomain();
+  const hasClientId = !!process.env.SHOPIFY_CLIENT_ID?.trim();
+  const hasClientSecret = !!process.env.SHOPIFY_CLIENT_SECRET?.trim();
+
+  if (!shop || !hasClientId || !hasClientSecret) {
+    return {
+      ready: false,
+      shop,
+      scopes: "",
+      missingScopes: [...REQUIRED_ORDER_SCOPES],
+      message:
+        "Add SHOPIFY_CLIENT_ID and SHOPIFY_CLIENT_SECRET to Vercel environment variables.",
+    };
+  }
+
+  try {
+    const { scope } = await getAdminAccessToken();
+    const missingScopes = getMissingOrderScopes(scope);
+    return {
+      ready: missingScopes.length === 0,
+      shop,
+      scopes: scope,
+      missingScopes,
+      message:
+        missingScopes.length === 0
+          ? "Order sync is configured correctly."
+          : `App is missing scopes: ${missingScopes.join(", ")}. Add them in dev.shopify.com → mittiganesha → Versions → Release.`,
+    };
+  } catch (error) {
+    return {
+      ready: false,
+      shop,
+      scopes: "",
+      missingScopes: [...REQUIRED_ORDER_SCOPES],
+      message: error instanceof Error ? error.message : "Could not verify Shopify Admin access.",
+    };
+  }
 }
 
 async function adminGraphql<T>(
   query: string,
   variables?: Record<string, unknown>,
 ): Promise<T> {
-  const shop = getShopDomain();
-  const token = await getAdminAccessToken();
+  const { token, scope } = await getAdminAccessToken();
+  const missing = getMissingOrderScopes(scope);
+  if (missing.length > 0) {
+    throw new Error(
+      `Shopify app missing permissions: ${missing.join(", ")}. ` +
+        "In dev.shopify.com open mittiganesha → Versions → add scopes " +
+        "write_draft_orders, read_draft_orders, write_orders, read_orders → Release → redeploy Vercel.",
+    );
+  }
 
+  const shop = getShopDomain();
   const res = await fetch(`https://${shop}/admin/api/${API_VERSION}/graphql.json`, {
     method: "POST",
     headers: {
@@ -169,7 +238,6 @@ export async function createShopifyOrder(input: CreateShopifyOrderInput) {
   const order = completeData.draftOrderComplete.draftOrder?.order;
   if (!order) throw new Error("Shopify order was not created from draft.");
 
-  // Mark paid — payment already collected via Razorpay
   try {
     await adminGraphql(
       `mutation ($input: OrderMarkAsPaidInput!) {
@@ -181,7 +249,7 @@ export async function createShopifyOrder(input: CreateShopifyOrderInput) {
       { input: { id: order.id } },
     );
   } catch {
-    // Order exists but may show as pending — still a success
+    // Order created — may show payment pending in Admin
   }
 
   return order;

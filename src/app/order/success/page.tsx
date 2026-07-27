@@ -12,10 +12,19 @@ export default async function OrderSuccessPage({
     estimated_by?: string;
     address?: string;
     shopify_order?: string;
+    shopify_error?: string;
   }>;
 }) {
-  const { payment_id, product, amount, delivery, estimated_by, address, shopify_order } =
-    await searchParams;
+  const {
+    payment_id,
+    product,
+    amount,
+    delivery,
+    estimated_by,
+    address,
+    shopify_order,
+    shopify_error,
+  } = await searchParams;
 
   return (
     <div className="relative grain pattern-rings py-20 sm:py-28">
@@ -38,6 +47,16 @@ export default async function OrderSuccessPage({
                 Expected by <strong>{estimated_by}</strong>
               </p>
             )}
+          </div>
+        )}
+
+        {shopify_error && (
+          <div className="mt-6 rounded-2xl border border-amber-300/80 bg-amber-50/90 p-5 text-left text-sm text-amber-900">
+            <p className="font-medium">Payment received — Shopify sync pending</p>
+            <p className="mt-2 text-amber-800">{shopify_error}</p>
+            <p className="mt-2 text-xs text-amber-700">
+              Your payment is safe. We&apos;ll confirm your order by email once Shopify is connected.
+            </p>
           </div>
         )}
 
