@@ -11,9 +11,11 @@ export default async function OrderSuccessPage({
     delivery?: string;
     estimated_by?: string;
     address?: string;
+    shopify_order?: string;
   }>;
 }) {
-  const { payment_id, product, amount, delivery, estimated_by, address } = await searchParams;
+  const { payment_id, product, amount, delivery, estimated_by, address, shopify_order } =
+    await searchParams;
 
   return (
     <div className="relative grain pattern-rings py-20 sm:py-28">
@@ -54,6 +56,11 @@ export default async function OrderSuccessPage({
             {address && (
               <p className="mt-2">
                 <span className="font-medium text-clay-700">Delivering to:</span> {address}
+              </p>
+            )}
+            {shopify_order && (
+              <p className="mt-2">
+                <span className="font-medium text-clay-700">Shopify order:</span> {shopify_order}
               </p>
             )}
             {payment_id && (

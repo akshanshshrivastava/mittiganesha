@@ -139,12 +139,12 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
               ...response,
               productTitle: product.title,
               amount: total,
+              handle: product.handle,
+              quantity,
               delivery: {
-                formatted: formatDeliveryAddress(address),
+                ...address,
                 estimate: deliveryEstimate.label,
                 estimatedBy: deliveryEstimate.estimatedBy,
-                city: address.city,
-                pincode: address.pincode,
               },
             }),
           });
@@ -163,6 +163,9 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
             estimated_by: deliveryEstimate.estimatedBy,
             address: formatDeliveryAddress(address),
           });
+          if (verifyData.shopifyOrderName) {
+            params.set("shopify_order", verifyData.shopifyOrderName);
+          }
           router.push(`/order/success?${params.toString()}`);
         },
         modal: {
