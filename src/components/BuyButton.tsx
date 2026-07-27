@@ -1,26 +1,21 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { buyNow } from "@/app/actions/checkout";
 
 export function BuyButton({
-  variantId,
+  handle,
   available,
 }: {
-  variantId: string;
+  handle: string;
   available: boolean;
 }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleBuy() {
     setLoading(true);
-    try {
-      const url = await buyNow(variantId);
-      window.location.href = url;
-    } catch {
-      alert("Something went wrong. Please try again.");
-      setLoading(false);
-    }
+    router.push(`/checkout?handle=${encodeURIComponent(handle)}`);
   }
 
   return (
@@ -29,7 +24,7 @@ export function BuyButton({
       disabled={!available || loading}
       className="btn-primary w-full rounded-2xl px-8 py-4 text-base font-semibold tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
     >
-      {loading ? "Opening checkout…" : available ? "Buy now — शुभ लाभ" : "Out of stock"}
+      {loading ? "Redirecting…" : available ? "Buy now — शुभ लाभ" : "Out of stock"}
     </button>
   );
 }

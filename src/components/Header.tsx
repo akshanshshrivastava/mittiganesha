@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { HeaderAuth } from "@/components/HeaderAuth";
+import { getSession } from "@/lib/session";
 
-export function Header() {
+export async function Header() {
+  const session = await getSession();
+
   return (
     <header className="sticky top-0 z-50 border-b border-clay-200/80 bg-clay-50/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
@@ -22,22 +26,17 @@ export function Header() {
         <nav className="flex items-center gap-1 sm:gap-2">
           <Link
             href="/#products"
-            className="rounded-full px-4 py-2 text-sm font-medium text-clay-700 transition hover:bg-clay-200/60 hover:text-maroon"
+            className="hidden rounded-full px-4 py-2 text-sm font-medium text-clay-700 transition hover:bg-clay-200/60 hover:text-maroon sm:inline"
           >
             Shop
           </Link>
           <Link
             href="/#about"
-            className="rounded-full px-4 py-2 text-sm font-medium text-clay-700 transition hover:bg-clay-200/60 hover:text-maroon"
+            className="hidden rounded-full px-4 py-2 text-sm font-medium text-clay-700 transition hover:bg-clay-200/60 hover:text-maroon sm:inline"
           >
             Our Story
           </Link>
-          <Link
-            href="/#products"
-            className="hidden sm:inline-flex btn-primary rounded-full px-5 py-2 text-sm font-medium text-white"
-          >
-            Browse idols
-          </Link>
+          <HeaderAuth session={session} />
         </nav>
       </div>
     </header>

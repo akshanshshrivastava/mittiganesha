@@ -72,9 +72,9 @@ export default async function ProductPage({
             />
 
             <div className="mt-10 rounded-2xl border border-clay-200/80 bg-white/70 p-6 backdrop-blur-sm">
-              <BuyButton variantId={product.variantId} available={product.available} />
+              <BuyButton handle={product.handle} available={product.available} />
               <p className="mt-4 text-center text-xs text-clay-400 sm:text-left">
-                Secure checkout · Free from Shopify · Delivered with care
+                Secure checkout via Razorpay · UPI · Cards · Netbanking
               </p>
             </div>
           </div>
