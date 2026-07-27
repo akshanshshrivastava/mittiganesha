@@ -6,9 +6,11 @@ import { useState } from "react";
 export function BuyButton({
   handle,
   available,
+  compact = false,
 }: {
   handle: string;
   available: boolean;
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -22,9 +24,13 @@ export function BuyButton({
     <button
       onClick={handleBuy}
       disabled={!available || loading}
-      className="btn-primary w-full rounded-2xl px-8 py-4 text-base font-semibold tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
+      className={
+        compact
+          ? "btn-primary w-full rounded-xl py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          : "btn-primary w-full rounded-2xl px-8 py-4 text-base font-semibold tracking-wide text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:min-w-[220px]"
+      }
     >
-      {loading ? "Redirecting…" : available ? "Buy now — शुभ लाभ" : "Out of stock"}
+      {loading ? "Redirecting…" : available ? (compact ? "Buy now" : "Buy now — शुभ लाभ") : "Out of stock"}
     </button>
   );
 }
