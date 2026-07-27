@@ -16,12 +16,13 @@ export const defaultSession: SessionData = {
 
 let cachedOptions: SessionOptions | null = null;
 
-function getSessionOptions(): SessionOptions {
+function getSessionOptions(): SessionOptions | null {
   if (cachedOptions) return cachedOptions;
 
   const secret = process.env.SESSION_SECRET?.trim();
   if (!secret || secret.length < 32) {
-    throw new Error("SESSION_SECRET must be set and at least 32 characters.");
+    console.error("SESSION_SECRET is missing or too short. Login/checkout disabled until configured.");
+    return null;
   }
 
   cachedOptions = {
@@ -39,11 +40,20 @@ function getSessionOptions(): SessionOptions {
 }
 
 export async function getSession() {
-  const session = await getIronSession<SessionData>(await cookies(), getSessionOptions());
+  const options = getSessionOptions();
+  if (!options) {
+    return { ...defaultSession };
+  }
+
+  const session = await getIronSession<SessionData>(await cookies(), options);
   if (session.isLoggedIn === undefined) {
     session.isLoggedIn = false;
   }
   return session;
+}
+
+export function isSessionConfigured() {
+  return getSessionOptions() !== null;
 }
 
 export async function requireCheckoutSession(redirectPath: string) {

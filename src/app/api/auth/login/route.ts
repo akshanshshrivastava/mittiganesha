@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loginCustomer } from "@/lib/shopify-customer";
-import { getSession } from "@/lib/session";
+import { getSession, isSessionConfigured } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
+  if (!isSessionConfigured()) {
+    return NextResponse.json(
+      { error: "Login is not configured yet. Use Continue as Guest or contact support." },
+      { status: 503 },
+    );
+  }
+
   try {
     const { email, password } = await request.json();
 

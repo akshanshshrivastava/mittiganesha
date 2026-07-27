@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { getSession, isSessionConfigured } from "@/lib/session";
 
 export async function POST(request: NextRequest) {
+  if (!isSessionConfigured()) {
+    return NextResponse.json(
+      { error: "Guest checkout is not configured yet. Add SESSION_SECRET in Vercel." },
+      { status: 503 },
+    );
+  }
+
   const body = await request.json().catch(() => ({}));
   const session = await getSession();
 
