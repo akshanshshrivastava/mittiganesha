@@ -3,6 +3,7 @@ import { createRazorpayOrder } from "@/lib/razorpay";
 import { validateDeliveryAddress } from "@/lib/delivery";
 import { getProduct } from "@/lib/shopify";
 import { getSession } from "@/lib/session";
+import { getShippingQuote } from "@/lib/shiprocket";
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,7 +32,9 @@ export async function POST(request: NextRequest) {
     }
 
     const qty = Math.min(Math.max(Number(quantity) || 1, 1), 10);
-    const totalInr = parseFloat(product.price) * qty;
+    const subtotalInr = parseFloat(product.price) * qty;
+    const shipping = await getShippingQuote(delivery.pincode, qty);
+    const totalInr = subtotalInr + shipping.rate;
     const receipt = `mg_${handle.slice(0, 20)}_${Date.now()}`;
 
     const order = await createRazorpayOrder(totalInr, receipt, {
@@ -39,7 +42,9 @@ export async function POST(request: NextRequest) {
       customer: delivery.name,
       city: delivery.city,
       pincode: delivery.pincode,
-      delivery_eta: delivery.estimate || "",
+      delivery_eta: delivery.estimate || shipping.estimatedDays || "",
+      shipping_rate: String(shipping.rate),
+      courier: shipping.courierName,
     });
 
     return NextResponse.json({
@@ -52,10 +57,20 @@ export async function POST(request: NextRequest) {
         price: product.price,
         quantity: qty,
       },
+      subtotal: subtotalInr,
+      shipping: {
+        rate: shipping.rate,
+        courierName: shipping.courierName,
+        courierCompanyId: shipping.courierCompanyId,
+        etd: shipping.etd,
+        estimatedDays: shipping.estimatedDays,
+        source: shipping.source,
+      },
+      total: totalInr,
       delivery: {
         formatted: delivery.formatted,
-        estimate: delivery.estimate,
-        estimatedBy: delivery.estimatedBy,
+        estimate: delivery.estimate || shipping.estimatedDays,
+        estimatedBy: delivery.estimatedBy || shipping.etd,
       },
     });
   } catch (error) {

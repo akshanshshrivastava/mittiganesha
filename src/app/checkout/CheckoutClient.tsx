@@ -3,13 +3,14 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { OrnamentDivider } from "@/components/Ornament";
 import {
   formatDeliveryAddress,
   getEstimatedDelivery,
   INDIAN_STATES,
   validateDeliveryAddress,
+  validatePincode,
   type DeliveryAddress,
   type DeliveryEstimate,
 } from "@/lib/delivery";
@@ -20,6 +21,15 @@ declare global {
     Razorpay: new (options: Record<string, unknown>) => { open: () => void };
   }
 }
+
+type ShippingQuote = {
+  rate: number;
+  courierName: string;
+  courierCompanyId: number | null;
+  etd: string | null;
+  estimatedDays: string | null;
+  source: "shiprocket" | "fallback";
+};
 
 type CheckoutClientProps = {
   product: Product;
@@ -52,13 +62,59 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [scriptReady, setScriptReady] = useState(false);
+  const [shipping, setShipping] = useState<ShippingQuote | null>(null);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [shippingError, setShippingError] = useState("");
 
-  const total = parseFloat(product.price) * quantity;
+  const subtotal = parseFloat(product.price) * quantity;
+  const shippingRate = shipping?.rate ?? 0;
+  const total = subtotal + shippingRate;
 
   const deliveryEstimate: DeliveryEstimate | null = useMemo(
     () => getEstimatedDelivery(address.pincode),
     [address.pincode],
   );
+
+  useEffect(() => {
+    if (!validatePincode(address.pincode)) {
+      setShipping(null);
+      setShippingError("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setShippingLoading(true);
+      setShippingError("");
+      try {
+        const res = await fetch(
+          `/api/shipping/rates?pincode=${address.pincode}&quantity=${quantity}`,
+          { signal: controller.signal },
+        );
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Could not fetch shipping.");
+        setShipping({
+          rate: data.rate,
+          courierName: data.courierName,
+          courierCompanyId: data.courierCompanyId,
+          etd: data.etd,
+          estimatedDays: data.estimatedDays,
+          source: data.source,
+        });
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setShipping(null);
+        setShippingError(err instanceof Error ? err.message : "Could not fetch shipping.");
+      } finally {
+        if (!controller.signal.aborted) setShippingLoading(false);
+      }
+    }, 400);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [address.pincode, quantity]);
 
   function updateField<K extends keyof DeliveryAddress>(key: K, value: DeliveryAddress[K]) {
     setAddress((prev) => ({ ...prev, [key]: value }));
@@ -71,8 +127,8 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
       setError(validationError);
       return;
     }
-    if (!deliveryEstimate) {
-      setError("Please enter a valid pincode to see delivery estimate.");
+    if (!shipping) {
+      setError(shippingError || "Please wait for shipping rates to load.");
       return;
     }
     setError("");
@@ -87,8 +143,8 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
     }
 
     const validationError = validateDeliveryAddress(address);
-    if (validationError || !deliveryEstimate) {
-      setError(validationError || "Invalid delivery details.");
+    if (validationError || !shipping) {
+      setError(validationError || "Shipping rate unavailable. Go back and re-enter pincode.");
       setStep("delivery");
       return;
     }
@@ -97,6 +153,12 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
     setError("");
 
     try {
+      const estimateLabel =
+        shipping.estimatedDays ||
+        deliveryEstimate?.label ||
+        (shipping.etd ? `By ${shipping.etd}` : "Standard delivery");
+      const estimatedBy = shipping.etd || deliveryEstimate?.estimatedBy || "";
+
       const orderRes = await fetch("/api/razorpay/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -106,13 +168,15 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
           delivery: {
             ...address,
             formatted: formatDeliveryAddress(address),
-            estimate: deliveryEstimate.label,
-            estimatedBy: deliveryEstimate.estimatedBy,
+            estimate: estimateLabel,
+            estimatedBy,
           },
         }),
       });
       const orderData = await orderRes.json();
       if (!orderRes.ok) throw new Error(orderData.error || "Could not start payment");
+
+      const chargedTotal = orderData.total ?? total;
 
       const options = {
         key: razorpayKeyId,
@@ -138,13 +202,12 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
             body: JSON.stringify({
               ...response,
               productTitle: product.title,
-              amount: total,
               handle: product.handle,
               quantity,
               delivery: {
                 ...address,
-                estimate: deliveryEstimate.label,
-                estimatedBy: deliveryEstimate.estimatedBy,
+                estimate: estimateLabel,
+                estimatedBy,
               },
             }),
           });
@@ -158,10 +221,12 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
           const params = new URLSearchParams({
             payment_id: response.razorpay_payment_id,
             product: product.title,
-            amount: String(total),
-            delivery: deliveryEstimate.label,
-            estimated_by: deliveryEstimate.estimatedBy,
+            amount: String(verifyData.amount ?? chargedTotal),
+            delivery: estimateLabel,
+            estimated_by: estimatedBy,
             address: formatDeliveryAddress(address),
+            shipping: String(orderData.shipping?.rate ?? shipping.rate),
+            courier: orderData.shipping?.courierName || shipping.courierName,
           });
           if (verifyData.shopifyOrderName) {
             params.set("shopify_order", verifyData.shopifyOrderName);
@@ -192,7 +257,6 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
         onLoad={() => setScriptReady(true)}
       />
 
-      {/* Step indicator */}
       <div className="mb-8 flex items-center justify-center gap-3 text-sm">
         <StepBadge number={1} label="Delivery" active={step === "delivery"} done={step === "payment"} />
         <div className="h-px w-10 bg-clay-300" />
@@ -200,7 +264,6 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
       </div>
 
       <div className="grid gap-10 lg:grid-cols-2">
-        {/* Order summary — always visible */}
         <div className="card-artisan rounded-3xl p-6 sm:p-8 lg:sticky lg:top-24 lg:self-start">
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-terracotta">
             Order summary
@@ -247,28 +310,60 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
           )}
 
           <OrnamentDivider className="my-6" />
-          <div className="flex items-center justify-between text-lg">
+
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between text-clay-700">
+              <span>Subtotal</span>
+              <span>{formatPrice(String(subtotal), product.currencyCode)}</span>
+            </div>
+            <div className="flex justify-between text-clay-700">
+              <span>Shipping</span>
+              <span>
+                {shippingLoading
+                  ? "Calculating…"
+                  : shipping
+                    ? formatPrice(String(shipping.rate), product.currencyCode)
+                    : validatePincode(address.pincode)
+                      ? "—"
+                      : "Enter pincode"}
+              </span>
+            </div>
+            {shipping && (
+              <p className="text-xs text-clay-500">
+                via {shipping.courierName}
+                {shipping.source === "fallback" ? " (estimated)" : ""}
+              </p>
+            )}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between text-lg">
             <span className="font-medium text-clay-700">Total</span>
             <span className="font-serif text-2xl font-semibold text-maroon">
               {formatPrice(String(total), product.currencyCode)}
             </span>
           </div>
 
-          {deliveryEstimate && (
+          {(shipping || deliveryEstimate) && (
             <div className="mt-6 rounded-2xl border border-green-200/80 bg-green-50/80 p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-green-800">
                 Estimated delivery
               </p>
-              <p className="mt-1 font-medium text-green-900">{deliveryEstimate.label}</p>
-              <p className="mt-1 text-sm text-green-700">
-                Expected by <strong>{deliveryEstimate.estimatedBy}</strong>
+              <p className="mt-1 font-medium text-green-900">
+                {shipping?.estimatedDays
+                  ? `${shipping.estimatedDays} day${shipping.estimatedDays === "1" ? "" : "s"}`
+                  : deliveryEstimate?.label}
               </p>
-              <p className="mt-2 text-xs text-green-600">
-                {deliveryEstimate.zone === "metro"
-                  ? "Metro city — faster shipping"
-                  : "Standard shipping across India"}
-              </p>
+              {(shipping?.etd || deliveryEstimate?.estimatedBy) && (
+                <p className="mt-1 text-sm text-green-700">
+                  Expected by{" "}
+                  <strong>{shipping?.etd || deliveryEstimate?.estimatedBy}</strong>
+                </p>
+              )}
             </div>
+          )}
+
+          {shippingError && (
+            <p className="mt-4 text-sm text-red-600">{shippingError}</p>
           )}
 
           {step === "payment" && address.pincode && (
@@ -287,7 +382,6 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
           )}
         </div>
 
-        {/* Right panel — delivery or payment */}
         <div className="card-artisan rounded-3xl p-6 sm:p-8">
           {step === "delivery" ? (
             <>
@@ -298,7 +392,7 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
                 Contact & delivery address
               </h2>
               <p className="mt-2 text-sm text-clay-500">
-                We need your full address before payment. Delivery estimate is based on your pincode.
+                Enter your pincode to see live shipping rates before payment.
               </p>
 
               <div className="mt-6 space-y-4">
@@ -369,7 +463,9 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
                     <input
                       id="pincode"
                       value={address.pincode}
-                      onChange={(e) => updateField("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      onChange={(e) =>
+                        updateField("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))
+                      }
                       className={inputClass}
                       placeholder="400001"
                       maxLength={6}
@@ -400,10 +496,10 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
               <button
                 type="button"
                 onClick={handleContinueToPayment}
-                disabled={!product.available}
+                disabled={!product.available || shippingLoading}
                 className="btn-primary mt-8 w-full rounded-2xl py-4 text-base font-semibold text-white disabled:opacity-60"
               >
-                Continue to payment →
+                {shippingLoading ? "Calculating shipping…" : "Continue to payment →"}
               </button>
             </>
           ) : (
@@ -415,17 +511,21 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
                 Review & pay
               </h2>
               <p className="mt-2 text-sm text-clay-500">
-                Confirm your order details below, then pay securely via Razorpay.
+                Confirm totals below, then pay securely via Razorpay.
               </p>
 
-              {deliveryEstimate && (
+              {shipping && (
                 <div className="mt-6 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-5">
-                  <p className="flex items-center gap-2 font-medium text-amber-900">
-                    <span>🚚</span> Delivery: {deliveryEstimate.label}
+                  <p className="font-medium text-amber-900">
+                    Shipping: {formatPrice(String(shipping.rate), product.currencyCode)} via{" "}
+                    {shipping.courierName}
                   </p>
-                  <p className="mt-1 text-sm text-amber-800">
-                    Your idol should arrive by <strong>{deliveryEstimate.estimatedBy}</strong>
-                  </p>
+                  {(shipping.etd || deliveryEstimate?.estimatedBy) && (
+                    <p className="mt-1 text-sm text-amber-800">
+                      Expected by{" "}
+                      <strong>{shipping.etd || deliveryEstimate?.estimatedBy}</strong>
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -434,7 +534,7 @@ export function CheckoutClient({ product, razorpayKeyId, session }: CheckoutClie
               <button
                 type="button"
                 onClick={handlePay}
-                disabled={loading || !product.available}
+                disabled={loading || !product.available || !shipping}
                 className="btn-primary mt-8 w-full rounded-2xl py-4 text-base font-semibold text-white disabled:opacity-60"
               >
                 {loading

@@ -11,6 +11,8 @@ export default async function OrderSuccessPage({
     delivery?: string;
     estimated_by?: string;
     address?: string;
+    shipping?: string;
+    courier?: string;
     shopify_order?: string;
     shopify_error?: string;
   }>;
@@ -22,6 +24,8 @@ export default async function OrderSuccessPage({
     delivery,
     estimated_by,
     address,
+    shipping,
+    courier,
     shopify_order,
     shopify_error,
   } = await searchParams;
@@ -70,6 +74,12 @@ export default async function OrderSuccessPage({
             {amount && (
               <p className="mt-2">
                 <span className="font-medium text-clay-700">Amount paid:</span> ₹{amount}
+              </p>
+            )}
+            {shipping && (
+              <p className="mt-2">
+                <span className="font-medium text-clay-700">Shipping:</span> ₹{shipping}
+                {courier ? ` (${courier})` : ""}
               </p>
             )}
             {address && (

@@ -148,6 +148,8 @@ export type CreateShopifyOrderInput = {
   productTitle: string;
   razorpayPaymentId: string;
   razorpayOrderId: string;
+  shippingInr?: number;
+  courierName?: string;
   delivery: DeliveryAddress & {
     estimate?: string;
     estimatedBy?: string;
@@ -158,16 +160,51 @@ export async function createShopifyOrder(input: CreateShopifyOrderInput) {
   const { firstName, lastName } = splitName(input.delivery.name);
   const phone = normalizePhone(input.delivery.phone);
 
+  const shippingInr = Math.max(0, Number(input.shippingInr) || 0);
   const note = [
     "Paid via Razorpay on mittiganesha.com",
     `Razorpay Payment ID: ${input.razorpayPaymentId}`,
     `Razorpay Order ID: ${input.razorpayOrderId}`,
     `Amount: ₹${input.amountInr}`,
+    shippingInr > 0 ? `Shipping: ₹${shippingInr}${input.courierName ? ` (${input.courierName})` : ""}` : "",
     input.delivery.estimate ? `Delivery estimate: ${input.delivery.estimate}` : "",
     input.delivery.estimatedBy ? `Expected by: ${input.delivery.estimatedBy}` : "",
   ]
     .filter(Boolean)
     .join("\n");
+
+  const draftInput: Record<string, unknown> = {
+    email: input.delivery.email,
+    phone,
+    note,
+    tags: ["razorpay", "website", "mittiganesha", "shiprocket"],
+    lineItems: [{ variantId: input.variantId, quantity: input.quantity }],
+    shippingAddress: {
+      firstName,
+      lastName,
+      address1: input.delivery.addressLine1,
+      address2: input.delivery.addressLine2 || "",
+      city: input.delivery.city,
+      province: input.delivery.state,
+      zip: input.delivery.pincode,
+      country: "IN",
+      phone,
+    },
+    customAttributes: [
+      { key: "razorpay_payment_id", value: input.razorpayPaymentId },
+      { key: "payment_method", value: "Razorpay" },
+      ...(input.courierName
+        ? [{ key: "courier", value: input.courierName }]
+        : []),
+    ],
+  };
+
+  if (shippingInr > 0) {
+    draftInput.shippingLine = {
+      title: input.courierName || "Shipping",
+      price: shippingInr.toFixed(2),
+    };
+  }
 
   const draftData = await adminGraphql<{
     draftOrderCreate: {
@@ -181,30 +218,7 @@ export async function createShopifyOrder(input: CreateShopifyOrderInput) {
         userErrors { field message }
       }
     }`,
-    {
-      input: {
-        email: input.delivery.email,
-        phone,
-        note,
-        tags: ["razorpay", "website", "mittiganesha"],
-        lineItems: [{ variantId: input.variantId, quantity: input.quantity }],
-        shippingAddress: {
-          firstName,
-          lastName,
-          address1: input.delivery.addressLine1,
-          address2: input.delivery.addressLine2 || "",
-          city: input.delivery.city,
-          province: input.delivery.state,
-          zip: input.delivery.pincode,
-          country: "IN",
-          phone,
-        },
-        customAttributes: [
-          { key: "razorpay_payment_id", value: input.razorpayPaymentId },
-          { key: "payment_method", value: "Razorpay" },
-        ],
-      },
-    },
+    { input: draftInput },
   );
 
   const draftErrors = draftData.draftOrderCreate.userErrors;
